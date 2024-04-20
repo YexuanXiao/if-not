@@ -1,0 +1,155 @@
+<pre class='metadata'>
+Title: if !(condition)
+Shortname: ????
+Revision: 0
+Status: NP
+Date: 2024-04-20
+Group: WG21
+Audience: SG17
+Editor: Yexuan Xiao, bizwen@nykz.org
+ED: https://github.com/YexuanXiao/if-not/blob/master/proposal.bs
+Markup Shorthands: markdown on
+Markup Shorthands: biblio yes
+Abstract: Allow `if !(condition)`.
+</pre>
+
+# Motivation # {#motivation}
+
+When using a logical operator to combine two conditions and then inverting it, the user must enclose the combined condition in parentheses.
+
+```cpp
+if (!(cond1 && cond2))
+```
+
+This pattern appears about 1500 times in [LLVM](https://github.com/llvm/llvm-project), and about 2300 times in [GCC](https://github.com/gcc-mirror/gcc). Excessive parentheses is annoying, some users might opt to use macros to simplify this, but macros are clearly not an ideal solution: they lack scope, and their names based on personal preferences:
+
+```cpp
+#define NOT(cond) (!(cond))
+// or
+#define IFN(cond) if (!(cond))
+// or
+#define IFNOT(cond) if (!(cond))
+```
+
+Therefore, it’s better to address it using a core language feature instead of a macro.
+
+In Ruby, there is an `unless` statement:
+
+```ruby
+x = 1
+unless x > 2
+   puts "x lesser than 2"
+else
+   puts "x greater than 2"
+end
+```
+
+In C++, we also have [[P1938]] `elifndef` and [[P2334]] `if !consteval` :
+
+```cpp
+// P2334 introduced elifndef to C++23
+std::size_t my_strlen(char const* str)
+{
+#ifndef __cpp_lib_freestanding_cstring
+    auto end{str};
+    for(;*end != '\0'; ++end);
+    return static_cast<std::size_t>(end - str);
+#else
+    return std::strlen(str);
+#endif
+}
+
+// https://zh.cppreference.com/w/cpp/language/if
+constexpr bool is_runtime_evaluated() noexcept
+{
+    if not consteval { return true; } else { return false; }
+}
+```
+
+This pattern is common and easy to understand.
+
+# Proposal # {#proposal}
+
+I propose adding `if !(condition)` to eliminate redundant parentheses.
+
+Annoying parentheses might deter some developers from using `!`, even when it makes the logic flow better. Therefore, we can anticipate that the potential usage could exceed its current performance.
+
+Of course, since `not` is equivalent to `!` in C++, this proposal would also allow `if not(cond)`.
+
+Moreover, some might prefer `if !(cond)` over `if (!cond)`. I think the former, compared to the latter, makes the negation emphasis clearer in certain situations:
+
+```cpp
+// libc++ __tree
+if !(__x->__is_black_)
+// rather than
+if (!__x->__is_black_)
+{
+    if (__x->__left_ && !__x->__left_->__is_black_)
+        return 0;
+    if (__x->__right_ && !__x->__right_->__is_black_)
+        return 0;
+}
+```
+
+# Syntax # {#syntax}
+
+<blockquote>
+if !<sub>*opt*</sub> constexpr<sub>*opt*</sub> ( *init-statement*<sub>*opt*</sub> *condition* ) *statement*<br>
+if !<sub>*opt*</sub> constexpr<sub>*opt*</sub> ( *init-statement*<sub>*opt*</sub> *condition* ) *statement* else *statement*
+</blockquote>
+
+An if statement of the form
+
+<blockquote>
+if ! constexpr<sub>*opt*</sub> ( *init-statement*<sub>*opt*</sub> *condition* ) *statement*
+</blockquote>
+
+is equivalent to
+
+<blockquote>
+if constexpr<sub>*opt*</sub> ( *init-statement*<sub>*opt*</sub> !(*condition*) ) *statement*
+</blockquote>
+
+and an if statement of the form
+
+<blockquote>
+if ! constexpr<sub>*opt*</sub> ( *init-statement*<sub>*opt*</sub> *condition* ) *statement* else *statement*
+</blockquote>
+
+is equivalent to
+
+<blockquote>
+if constexpr<sub>*opt*</sub> ( *init-statement*<sub>*opt*</sub> !(*condition*) ) *statement* else *statement*
+</blockquote>
+
+<style>
+blockquote {
+    border: none;
+    margin: 0 2em;
+}
+</style>
+
+# Impact on existing code # {#impact}
+
+This is a pure extension; it doesn’t affect any existing code.
+
+<pre class=biblio>
+{
+"P2334": {
+	"title": "if consteval",
+	"authors": [
+		"Barry Revzin"
+	],
+	"href": "https://wg21.link/p2334",
+	"date": "March 2021"
+	},
+"P1938": {
+	"title": "Add support for preprocessing directives elifdef and elifndef",
+	"authors": [
+		"Melanie Blower "
+	],
+	"href": "https://wg21.link/p1938",
+	"date": "April 2021"
+	}
+}
+</pre>
